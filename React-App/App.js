@@ -3,29 +3,37 @@ import React, { useState, useEffect } from 'react';
 import { Text, TouchableOpacity, View, LayoutAnimation, ImageBackground } from 'react-native';
 import axios from 'axios';
 
+const WATER_RATE_URL = process.env.WATER_RATE_URL;
+const TEMPERATURE_URL = process.env.TEMPERATURE_URL;
+const TRIGGER_WATER_URL = process.env.TRIGGER_WATER_URL;
+
 export default function App() {
-  const [isOn, setIsOn] = useState(false);
+
   const [waterRate, setWaterRate] = useState(0);
+  const [temperature, setTemperature] = useState(0); 
   const [showNotification, setShowNotification] = useState(false);
 
   const onColor = 'green';
-  const offColor = 'red';
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get('http://10.57.33.57:8080/water-rate/last');
-        const newWaterRate = response.data.data["water-rate"];
+        const waterRateResponse = await axios.get(WATER_RATE_URL);
+        const newWaterRate = waterRateResponse.data.data["water-rate"];
         setWaterRate(newWaterRate);
 
-        // Check if water rate is <= 30
+        const temperatureResponse = await axios.get(TEMPERATURE_URL);
+        const newTemperature = temperatureResponse.data.data["temp"]; 
+        setTemperature(newTemperature);
+
+        // Vérifie si le niveau d'eau est inférieur ou égal à 30
         if (parseFloat(newWaterRate) <= 30) {
           setShowNotification(true);
         } else {
           setShowNotification(false);
         }
       } catch (error) {
-        console.error('Error fetching water rate:', error);
+        console.error('Error fetching data:', error);
       }
     };
 
@@ -33,7 +41,6 @@ export default function App() {
       fetchData();
     }, 3000);
 
-    // Fetch data immediately when component mounts
     fetchData();
 
     return () => clearInterval(intervalId);
@@ -41,10 +48,7 @@ export default function App() {
 
   const triggerWater = async () => {
     try {
-      const statusToSend = !isOn; // Utilise la valeur actuelle de isOn pour déterminer le statut à envoyer
-      const status = statusToSend ? 'ON' : 'OFF';
-      await axios.post('http://10.57.33.57:8080/trigger-water', { status });
-      setIsOn(statusToSend);
+      await axios.post(TRIGGER_WATER_URL, { status: 'ON' });
     } catch (error) {
       console.error('Error triggering water:', error);
     }
@@ -68,39 +72,43 @@ export default function App() {
         )}
         <Text style={{ fontSize: 24, color: 'blue', marginBottom: 10 }}>Niveau d'eau</Text>
         <Text style={{ fontSize: 20, color: 'blue', marginBottom: 20 }}>{waterRate}</Text>
+
+        <Text style={{ fontSize: 24, color: 'blue', marginBottom: 10 }}>Température</Text>
+        <Text style={{ fontSize: 20, color: 'blue', marginBottom: 20 }}>{temperature} °C</Text>
+
         <TouchableOpacity
           style={{
-            width: 220,
-            height: 80,
-            borderRadius: 90,
+            width: 150,
+            height: 150,
+            borderRadius: 120,
             borderWidth: 4,
             flexDirection: 'row',
             alignItems: 'center',
-            paddingRight: 150,
             overflow: 'hidden',
-            borderColor: isOn ? onColor : offColor
+            borderColor: onColor,
+            backgroundColor: waterRate >= 80 ? 'gray' : onColor,
           }}
           onPress={() => {
             LayoutAnimation.easeInEaseOut();
             triggerWater();
           }}
+          disabled={waterRate >= 80}
         >
           <View
             style={{
               flex: 1,
               height: '90%',
               borderRadius: 80,
-              backgroundColor: isOn ? onColor : offColor,
+              backgroundColor: onColor,
               alignItems: 'center',
               justifyContent: 'center',
-              transform: [{ translateX: isOn ? 145 : 5 }],
+              transform: [{ translateX: 0 }],
             }}
           >
-            <Text style={{ fontSize: 22, color: 'white', fontWeight: '500' }}>
-              {isOn ? 'ON' : 'OFF'}
-            </Text>
+            <Text style={{ fontSize: 35, color: 'white', fontWeight: '900' }}>ON</Text>
           </View>
         </TouchableOpacity>
+
       </View>
       <StatusBar style="auto" />
     </ImageBackground>
